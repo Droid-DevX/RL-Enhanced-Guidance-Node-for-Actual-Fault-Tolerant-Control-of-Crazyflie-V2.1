@@ -70,7 +70,7 @@ DR SAC        | Steps: 1001 | Reward: +2472.83   | Mean z-err: 0.0605 m  [SOLE S
 
 ---
 
-## 🛠 How it Works
+##  How it Works
 
 **State Space (16-dim):** 
 Position (x, y, z), linear velocity, Euler angles, angular rates, goal altitude (`z_target`), integral error accumulators (`Ix, Iy, Iz`).
