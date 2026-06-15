@@ -98,6 +98,8 @@ Crazyflie-FaultTolerance/
 ├── inference.py            # Benchmark script for Zero-Shot SAC
 ├── inference_dr.py         # Benchmark script for DR SAC
 ├── inference_pid.py        # Benchmark script for PID baseline
+├── run_experiment.py       # Automated multi-agent experiment runner
+├── plot_ieee.py            # IEEE-compliant results plotter
 ├── logs_hover_sac/         # Saved models for Zero-Shot SAC
 └── logs_hover_sac_dr/      # Saved models for DR SAC
 ```
@@ -109,19 +111,21 @@ Crazyflie-FaultTolerance/
 ### Prerequisites
 Requires Python 3.8+.
 ```bash
-pip install stable-baselines3 pybullet gymnasium torch numpy matplotlib gym-pybullet-drones
+pip install stable-baselines3 pybullet gymnasium torch numpy matplotlib gym-pybullet-drones pandas
 ```
 
 ### Running the Benchmarks
 
 ```bash
-# Evaluate Zero-Shot SAC
+# Run the automated benchmark for all controllers and save to CSV
+python run_experiment.py --name "(0.741,0.741,1,1)" --z_target 1.0 --steps 1000
+
+# Generate IEEE-compliant comparison plots
+python plot_ieee.py --csv "(0.741,0.741,1,1).csv"
+
+# Optional: Evaluate individual controllers
 python inference.py
-
-# Evaluate DR SAC
 python inference_dr.py
-
-# Evaluate PID
 python inference_pid.py
 ```
 
