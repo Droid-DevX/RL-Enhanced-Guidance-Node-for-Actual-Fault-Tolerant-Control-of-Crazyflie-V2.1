@@ -155,7 +155,7 @@ class GoalConditionedHoverEnv(BaseAviary):
     # Action preprocessing
     # ------------------------------------------------------------------ #
     def _preprocessAction(self, action):
-        FAULT_FACTOR = np.array([1.0, 1.0, 1.0, 1.0])
+        FAULT_FACTOR = np.array([0.741, 0.741, 1.0, 1.0])
         rpm = action * self.MAX_RPM * FAULT_FACTOR
         return np.clip(rpm, 0.0, self.MAX_RPM)
 
