@@ -40,7 +40,7 @@ We evaluated the controllers against four test cases (TC), increasing in severit
 
 > **Key Takeaway**: DR SAC is the only controller to complete all 5 episodes in every test case. PID fails immediately under adjacent-motor faults; Nominal SAC eventually crashes under severe asymmetric degradation.
 
-### Statistical Detail (from `experiment_results.csv`)
+### Statistical Detail (from `software_experiments/experiment_results.csv`)
 
 | TC | Controller | Mean Error (m) | Std Dev (m) | Episodes Completed | Avg Crash Step |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -75,7 +75,7 @@ Normalized per-motor RPM commands ∈ `[0, 1]`, scaled to `MAX_RPM`. Direct per-
 PID fails under adjacent-motor faults because its rigid cascade structure applies full corrective torque instantly, driving the drone into the ground. Zero-Shot SAC learns a somewhat smooth, robust action distribution just through exploration, but struggles with severe faults. DR SAC explicitly learns to map severe asymmetric state errors into redistributed thrust commands, surviving 26% degradation completely unseen during its `[0.60, 1.00]` randomized training.
 
 **Fault Injection via Monkeypatching:**
-`run_experiment.py` dynamically overrides `env._preprocessAction` with `types.MethodType` at runtime, injecting the TC-specific fault vector without modifying any source files. This ensures reproducible and isolated fault conditions for each controller.
+`software_experiments/run_experiment.py` dynamically overrides `env._preprocessAction` with `types.MethodType` at runtime, injecting the TC-specific fault vector without modifying any source files. This ensures reproducible and isolated fault conditions for each controller.
 
 ---
 
@@ -83,19 +83,28 @@ PID fails under adjacent-motor faults because its rigid cascade structure applie
 
 ```text
 Fault_Tolerant/
-├── custom_hover_env.py     # Nominal Gymnasium env & reward function
-├── custom_hover_env_dr.py  # Environment with Domain Randomization logic
-├── train_nominal.py        # SAC training script for Zero-Shot agent
-├── train_dr.py             # SAC training script for DR agent
-├── inference.py            # Single-run evaluation for Zero-Shot SAC
-├── inference_dr.py         # Single-run evaluation for DR SAC
-├── inference_pid.py        # Single-run evaluation for PID baseline
-├── run_experiment.py       # Automated multi-agent, multi-TC benchmark (headless)
-├── plot_ieee.py            # IEEE-compliant dual-panel plotter (z-error + XY drift)
-├── experiment_results.csv  # Aggregated statistical results (auto-generated)
-├── Plots/                  # IEEE-compliant PNG plots, one per TC scenario
-├── logs_hover_sac/         # Saved models for Zero-Shot SAC
-└── logs_hover_sac_dr/      # Saved models for DR SAC
+├── custom_hover_env.py        # Nominal Gymnasium env & reward function
+├── custom_hover_env_dr.py     # Environment with Domain Randomization logic
+├── train_nominal.py           # SAC training script for Zero-Shot agent
+├── train_dr.py                # SAC training script for DR agent
+├── inference.py               # Single-run evaluation for Zero-Shot SAC
+├── inference_dr.py            # Single-run evaluation for DR SAC
+├── inference_pid.py           # Single-run evaluation for PID baseline
+├── software_experiments/      # Automated benchmark scripts & plotting
+│   ├── run_experiment.py      # Automated multi-agent benchmark
+│   ├── plot_ieee.py           # IEEE-compliant plotter
+│   └── experiment_results.csv # Aggregated statistical results
+├── hardware_deploy/           # ROS 2 hardware deployment nodes
+│   ├── policy_node.py         # ROS 2 node running trained SAC models
+│   ├── pid_node.py            # ROS 2 node running PID controller
+│   ├── z_target_publisher.py  # Publishes z_target via ROS 2
+│   └── launch_*.py            # Launch files for real-world deployment
+├── hardware_experiments/      # Hardware telemetry logging and plotting
+│   ├── hw_logger.py           # Logs telemetry to CSV during flight
+│   └── plot_hw_ieee.py        # Generates plots from hardware logs
+├── Plots/                     # IEEE-compliant PNG plots, one per TC scenario
+├── logs_hover_sac/            # Saved models for Zero-Shot SAC
+└── logs_hover_sac_dr/         # Saved models for DR SAC
 ```
 
 ---
@@ -110,11 +119,13 @@ pip install stable-baselines3 pybullet gymnasium torch numpy matplotlib gym-pybu
 
 ### Running the Full Automated Benchmark
 
-`run_experiment.py` is fully automated — no arguments required. It runs all 4 test cases × 3 controllers × 5 episodes headlessly and saves results to `experiment_results.csv`.
+`software_experiments/run_experiment.py` is fully automated — no arguments required. It runs all 4 test cases × 3 controllers × 5 episodes headlessly and saves results to `software_experiments/experiment_results.csv`.
 
 ```bash
 # Run the full benchmark (headless, no GUI)
+cd software_experiments
 python3 run_experiment.py
+cd ..
 ```
 
 **What it does:**
@@ -126,16 +137,16 @@ python3 run_experiment.py
 
 ### Generating IEEE-Compliant Plots
 
-`plot_ieee.py` takes a **telemetry CSV** (time-series z-error and x/y position, logged per-step by the individual inference scripts) and produces a dual-panel IEEE-formatted plot.
+`software_experiments/plot_ieee.py` takes a **telemetry CSV** (time-series z-error and x/y position, logged per-step by the individual inference scripts) and produces a dual-panel IEEE-formatted plot.
 
 ```bash
 # Generate a dual-panel IEEE plot from a per-step telemetry CSV
-python plot_ieee.py --csv "(0.741,0.741,1,1).csv"
+python3 software_experiments/plot_ieee.py --csv "(0.741,0.741,1,1).csv"
 
 # Other TC plots
-python plot_ieee.py --csv "(1,1,1,1).csv"
-python plot_ieee.py --csv "(0.85,1,0.85,1).csv"
-python plot_ieee.py --csv "(0.85,0.85,1,1).csv"
+python3 software_experiments/plot_ieee.py --csv "(1,1,1,1).csv"
+python3 software_experiments/plot_ieee.py --csv "(0.85,1,0.85,1).csv"
+python3 software_experiments/plot_ieee.py --csv "(0.85,0.85,1,1).csv"
 ```
 
 Pre-generated plots are stored in the `Plots/` directory.
@@ -146,6 +157,36 @@ Pre-generated plots are stored in the `Plots/` directory.
 python inference.py      # Zero-Shot SAC (single episode, optional GUI)
 python inference_dr.py   # DR SAC (single episode, optional GUI)
 python inference_pid.py  # PID baseline (single episode, optional GUI)
+```
+
+### Hardware Deployment & Experiments
+
+We deploy our controllers on real Crazyflie v2.1 hardware using ROS 2 to validate sim-to-real performance.
+
+**1. Launching the Controller:**
+First, start the Crazyflie ROS 2 driver and then launch the desired controller:
+```bash
+# Terminal 1: Core Driver
+source ~/crazyflie_ws/install/setup.bash
+ros2 launch crazyflie launch.py mocap:=False gui:=False
+
+# Terminal 2: Choose your controller
+ros2 launch hardware_deploy/launch_policy.py       # DR-SAC
+# OR
+ros2 launch hardware_deploy/launch_pid.py          # PID
+
+# Terminal 3: Publish Target Height
+python3 hardware_deploy/z_target_publisher.py
+```
+
+**2. Logging & Plotting Telemetry:**
+Record real flight data and generate IEEE-compliant plots:
+```bash
+# Terminal 4: Log telemetry for a 30% thrust loss on motor 2 with PID
+python3 hardware_experiments/hw_logger.py --controller pid --fault 1.0_1.0_0.7_1.0
+
+# Generate hardware plots (PNG/PDF):
+python3 hardware_experiments/plot_hw_ieee.py --save
 ```
 
 ### Training the Models
