@@ -90,15 +90,15 @@ Fault_Tolerant/
 ├── inference.py               # Single-run evaluation for Zero-Shot SAC
 ├── inference_dr.py            # Single-run evaluation for DR SAC
 ├── inference_pid.py           # Single-run evaluation for PID baseline
+├── launch_pid.py              # Launch file for real-world PID deployment
+├── launch_policy.py           # Launch file for real-world SAC deployment
+├── pid_node.py                # ROS 2 node running PID controller
+├── policy_node.py             # ROS 2 node running trained SAC models
+├── z_target_publisher.py      # Publishes z_target via ROS 2
 ├── software_experiments/      # Automated benchmark scripts & plotting
 │   ├── run_experiment.py      # Automated multi-agent benchmark
 │   ├── plot_ieee.py           # IEEE-compliant plotter
 │   └── experiment_results.csv # Aggregated statistical results
-├── hardware_deploy/           # ROS 2 hardware deployment nodes
-│   ├── policy_node.py         # ROS 2 node running trained SAC models
-│   ├── pid_node.py            # ROS 2 node running PID controller
-│   ├── z_target_publisher.py  # Publishes z_target via ROS 2
-│   └── launch_*.py            # Launch files for real-world deployment
 ├── hardware_experiments/      # Hardware telemetry logging and plotting
 │   ├── hw_logger.py           # Logs telemetry to CSV during flight
 │   └── plot_hw_ieee.py        # Generates plots from hardware logs
@@ -171,12 +171,12 @@ source ~/crazyflie_ws/install/setup.bash
 ros2 launch crazyflie launch.py mocap:=False gui:=False
 
 # Terminal 2: Choose your controller
-ros2 launch hardware_deploy/launch_policy.py       # DR-SAC
+ros2 launch launch_policy.py       # DR-SAC
 # OR
-ros2 launch hardware_deploy/launch_pid.py          # PID
+ros2 launch launch_pid.py          # PID
 
 # Terminal 3: Publish Target Height
-python3 hardware_deploy/z_target_publisher.py
+python3 z_target_publisher.py
 ```
 
 **2. Logging & Plotting Telemetry:**
